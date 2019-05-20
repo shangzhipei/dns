@@ -1199,8 +1199,9 @@ func TestMalformedPackets(t *testing.T) {
 }
 
 type algorithm struct {
-	name uint8
-	bits int
+	name       uint8
+	bits       int
+	deprecated bool
 }
 
 func TestNewPrivateKey(t *testing.T) {
@@ -1208,12 +1209,13 @@ func TestNewPrivateKey(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 	algorithms := []algorithm{
-		{ECDSAP256SHA256, 256},
-		{ECDSAP384SHA384, 384},
-		{RSASHA1, 1024},
-		{RSASHA256, 2048},
-		{DSA, 1024},
-		{ED25519, 256},
+		{ECDSAP256SHA256, 256, false},
+		{ECDSAP384SHA384, 384, false},
+		{RSASHA1, 1024, false},
+		{RSASHA256, 2048, false},
+		{ED25519, 256, false},
+		{DSA, 1024, true},    // deprecated
+		{RSAMD5, 1024, true}, // deprecated
 	}
 
 	for _, algo := range algorithms {
@@ -1227,7 +1229,11 @@ func TestNewPrivateKey(t *testing.T) {
 		key.Algorithm = algo.name
 		privkey, err := key.Generate(algo.bits)
 		if err != nil {
-			t.Fatal(err)
+			if !algo.deprecated {
+				t.Fatal(err)
+			}
+			// deprecated algo, this must fail
+			continue
 		}
 
 		newPrivKey, err := key.NewPrivateKey(key.PrivateKeyString(privkey))

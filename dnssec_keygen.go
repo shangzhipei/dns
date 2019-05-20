@@ -2,7 +2,6 @@ package dns
 
 import (
 	"crypto"
-	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -20,12 +19,8 @@ import (
 // bits should be set to the size of the algorithm.
 func (k *DNSKEY) Generate(bits int) (crypto.PrivateKey, error) {
 	switch k.Algorithm {
-	case RSAMD5:
+	case RSAMD5, DSA, DSANSEC3SHA1:
 		return nil, ErrAlg
-	case DSA, DSANSEC3SHA1:
-		if bits != 1024 {
-			return nil, ErrKeySize
-		}
 	case RSASHA1, RSASHA256, RSASHA1NSEC3SHA1:
 		if bits < 512 || bits > 4096 {
 			return nil, ErrKeySize
@@ -49,19 +44,6 @@ func (k *DNSKEY) Generate(bits int) (crypto.PrivateKey, error) {
 	}
 
 	switch k.Algorithm {
-	case DSA, DSANSEC3SHA1:
-		params := new(dsa.Parameters)
-		if err := dsa.GenerateParameters(params, rand.Reader, dsa.L1024N160); err != nil {
-			return nil, err
-		}
-		priv := new(dsa.PrivateKey)
-		priv.PublicKey.Parameters = *params
-		err := dsa.GenerateKey(priv, rand.Reader)
-		if err != nil {
-			return nil, err
-		}
-		k.setPublicKeyDSA(params.Q, params.P, params.G, priv.PublicKey.Y)
-		return priv, nil
 	case RSASHA1, RSASHA256, RSASHA512, RSASHA1NSEC3SHA1:
 		priv, err := rsa.GenerateKey(rand.Reader, bits)
 		if err != nil {
@@ -119,16 +101,6 @@ func (k *DNSKEY) setPublicKeyECDSA(_X, _Y *big.Int) bool {
 		intlen = 48
 	}
 	k.PublicKey = toBase64(curveToBuf(_X, _Y, intlen))
-	return true
-}
-
-// Set the public key for DSA
-func (k *DNSKEY) setPublicKeyDSA(_Q, _P, _G, _Y *big.Int) bool {
-	if _Q == nil || _P == nil || _G == nil || _Y == nil {
-		return false
-	}
-	buf := dsaToBuf(_Q, _P, _G, _Y)
-	k.PublicKey = toBase64(buf)
 	return true
 }
 
